@@ -1,1 +1,9 @@
+# IDE
 .idea/
+
+# Executable
+simpleSMTP
+
+# Certs and Keys
+*.crt
+*.key
