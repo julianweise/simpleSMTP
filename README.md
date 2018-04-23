@@ -10,4 +10,4 @@ Generate a local testing key: `openssl ecparam -genkey -name secp384r1 -out serv
 Generate a certificate for testing purpose: `openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650`
 
 
-You can test the implementation easily by making use of gnutls: `gnutls-cli localhost -p 443 --no-ca-verification`
+Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --no-ca-verification`
