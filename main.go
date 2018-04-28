@@ -9,7 +9,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"strconv"
 )
+
+var Config struct {
+	port int
+	serverCertificateName string
+	serverKeyName string
+	mailDirectory string
+	maxMailSize int
+}
 
 func handleCriticalError(err error) {
 	if err != nil {
@@ -26,23 +35,29 @@ func handleNonCriticalError(err error) {
 func main() {
 	// Load environment variables
 	err := godotenv.Load()
+	Config.port, err = strconv.Atoi(os.Getenv("PORT"))
+	Config.maxMailSize, err = strconv.Atoi(os.Getenv("MAX_MAIL_SIZE"))
+	Config.serverCertificateName = os.Getenv("CERTIFICATE")
+	Config.serverKeyName = os.Getenv("KEY")
+	Config.mailDirectory = os.Getenv("MAIL_DIRECTORY")
+
 	handleCriticalError(err)
 
-	// prepare environment
-	if _, err := os.Stat(os.Getenv("MAIL_DIRECTORY")); os.IsNotExist(err) {
-		err := os.MkdirAll(os.Getenv("MAIL_DIRECTORY"), os.ModePerm)
+	// prepare local environment
+	if _, err := os.Stat(Config.mailDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(Config.mailDirectory, os.ModePerm)
 		handleCriticalError(err)
 	}
 
 	// load server certificate
-	cer, err := tls.LoadX509KeyPair(os.Getenv("CERTIFICATE"), os.Getenv("KEY"))
+	cer, err := tls.LoadX509KeyPair(Config.serverCertificateName, Config.serverKeyName)
 	handleCriticalError(err)
 
 	// load config and start up
 	config := &tls.Config{Certificates: []tls.Certificate{cer}}
-	ln, err := tls.Listen("tcp", ":" + os.Getenv("PORT"), config)
+	ln, err := tls.Listen("tcp", ":" + string(Config.port), config)
 	handleCriticalError(err)
-	fmt.Printf("Listening on port %s \n", os.Getenv("PORT"))
+	fmt.Printf("Listening on port %s \n", string(Config.port))
 	defer ln.Close()
 
 	for {
@@ -64,7 +79,6 @@ func sendResponse(conn net.Conn, response string) {
 }
 
 func handleConnection(conn net.Conn) {
-	// TODO: Clean up state machine
 	defer conn.Close()
 	r := bufio.NewReader(conn)
 	mail := Mail{}
@@ -74,13 +88,19 @@ func handleConnection(conn net.Conn) {
 	for {
 		msg, err := r.ReadString('\n')
 		handleNonCriticalError(err)
-		// TODO: Restrict mail size
 		if dataMode {
+			// max mail length in byte
+			if len(mail.Data) > Config.maxMailSize {
+				sendResponse(conn, "556 Message too large")
+				mail.Data = ""
+				dataMode = false
+				continue
+			}
 			if msg != ".\n" {
 				mail.Data += msg
 			} else {
 				sendResponse(conn, "250 OK")
-				mail.writeToFile(os.Getenv("MAIL_DIRECTORY"))
+				mail.writeToFile(Config.mailDirectory)
 				dataMode = false
 			}
 			continue
