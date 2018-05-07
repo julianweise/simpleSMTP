@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/textproto"
 	"io"
+	"time"
 )
 
 type SMTPSession struct {
@@ -28,10 +29,22 @@ func (s *SMTPSession) handle() {
 	fmt.Printf("New s.Connectionection esablished for: %s \n", s.Connection.RemoteAddr().String())
 	s.sendResponse("220 service ready")
 
+	timeoutDuration := 5 * time.Second
+
 	for s.active {
+		// reset timeout
+		s.Connection.SetReadDeadline(time.Now().Add(timeoutDuration))
+		// read client input
 		msg, err := s.Reader.ReadLine()
 		if err != nil {
-			log.Println(err)
+			if err == io.EOF {
+				log.Printf("Lost connection to %s\n", s.Connection.RemoteAddr().String())
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				s.sendResponse("221 idle timeout - closing channel")
+			} else {
+				log.Println(err)
+			}
+			return
 		}
 		command := strings.Fields(msg)
 		if len(command) < 1 {
