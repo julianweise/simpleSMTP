@@ -104,6 +104,10 @@ func (s *SMTPSession) handleMail(arguments []string) {
 }
 
 func (s *SMTPSession) handleRCPT(arguments []string) {
+	if len(s.Mail.Sender) < 1 {
+		s.sendResponse("503 sender missing. Issue MAIL command first")
+		return
+	}
 	if len(arguments) < 1 || len(arguments[0]) <= len("TO:") {
 		s.sendResponse("501 arguments missing")
 		return
@@ -118,6 +122,14 @@ func (s *SMTPSession) handleRCPT(arguments []string) {
 }
 
 func (s *SMTPSession) handleData() {
+	if len(s.Mail.Sender) < 1 {
+		s.sendResponse("503 sender missing. Issue MAIL command first")
+		return
+	}
+	if len(s.Mail.Recipient) < 1 {
+		s.sendResponse("503 at least one recipient is required")
+		return
+	}
 	s.sendResponse("354 End data with <CR><LF>.<CR><LF>")
 
 	dataReader := s.Reader.DotReader()
@@ -136,6 +148,8 @@ func (s *SMTPSession) handleData() {
 	s.sendResponse("250 OK")
 	s.Mail.writeToFile(s.Configuration.MailDirectory)
 }
+
+// helper functions
 
 func (s *SMTPSession) sendResponse(response string) {
 	err := s.Writer.PrintfLine(response)
