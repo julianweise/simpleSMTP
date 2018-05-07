@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"log"
 	"net/textproto"
+	"io"
 )
 
 type SMTPSession struct {
@@ -49,7 +50,6 @@ func (s *SMTPSession) handle() {
 			s.handleNoop()
 		case "QUIT":
 			s.handleQuit()
-			break
 		case "RSET":
 			s.handleReset()
 		case "VRFY":
@@ -74,7 +74,7 @@ func (s *SMTPSession) handleNoop() {
 func (s *SMTPSession) handleQuit() {
 	s.sendResponse("221 closing channel")
 	fmt.Printf("Closing s.Connectionection to %s as requested by client", s.Connection.RemoteAddr().String())
-	s.Connection.Close()
+	s.active = false
 }
 
 func (s *SMTPSession) handleReset() {
@@ -89,34 +89,45 @@ func (s *SMTPSession) handleVerify() {
 }
 
 func (s *SMTPSession) handleMail(arguments []string) {
-	s.checkNumberOfArguments(arguments, 1)
-	if arguments[1][:3] != "FROM" {
+	if len(arguments) < 1 || len(arguments[0]) <= len("FROM:") {
+		s.sendResponse("501 arguments missing")
+		return
+	}
+	if arguments[0][:4] != "FROM" {
+		fmt.Println(arguments[0][:4])
 		s.sendResponse("501 invalid arguments")
+		return
 	}
 
-	s.Mail.Sender = arguments[1][5:]
+	s.Mail.Sender = arguments[0][5:]
 	s.sendResponse("250 Sender OK")
 }
 
 func (s *SMTPSession) handleRCPT(arguments []string) {
-	s.checkNumberOfArguments(arguments, 1)
-	if arguments[1][:1] != "TO" {
+	if len(arguments) < 1 || len(arguments[0]) <= len("TO:") {
+		s.sendResponse("501 arguments missing")
+		return
+	}
+	if arguments[0][:2] != "TO" {
 		s.sendResponse("501 invalid arguments")
+		return
 	}
 
-	s.Mail.Recipient = append(s.Mail.Recipient, arguments[1][3:])
+	s.Mail.Recipient = append(s.Mail.Recipient, arguments[0][3:])
 	s.sendResponse("250 Sender OK")
 }
 
 func (s *SMTPSession) handleData() {
 	s.sendResponse("354 End data with <CR><LF>.<CR><LF>")
 
-	dataReader := newSMTPDataReader(s.Reader, 200000)
-	mailData := make([]byte, 200000)
+	dataReader := s.Reader.DotReader()
+	mailData := make([]byte, s.Configuration.MaxMailSize)
 	n, err := dataReader.Read(mailData)
 
-	if err != nil {
-		s.sendResponse(err.Error())
+	if err != io.EOF {
+		s.sendResponse("552 Maximum message size exceeded")
+		s.Reader.R.Discard(s.Reader.R.Buffered())
+		s.Reader = textproto.NewReader(s.Reader.R)
 		return
 	}
 
@@ -124,13 +135,6 @@ func (s *SMTPSession) handleData() {
 
 	s.sendResponse("250 OK")
 	s.Mail.writeToFile(s.Configuration.MailDirectory)
-}
-
-// helper functions
-func (s *SMTPSession) checkNumberOfArguments(arguments []string, numberRequired int) {
-	if len(arguments) < numberRequired {
-		s.sendResponse("501 arguments missing")
-	}
 }
 
 func (s *SMTPSession) sendResponse(response string) {
