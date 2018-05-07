@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"net"
 	"strconv"
+	"fmt"
 )
 
 type TcpServer struct {
@@ -35,6 +36,7 @@ func (s *TcpServer) Serve() {
 
 func (s *TcpServer) listen(ln net.Listener) {
 	defer ln.Close()
+	fmt.Printf("Server is up and running on port %d.\n", s.Configuration.Port)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
