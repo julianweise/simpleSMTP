@@ -37,7 +37,7 @@ func (s *SMTPSession) handle() {
 		if len(command) < 1 {
 			continue
 		}
-		switch command[0] {
+		switch strings.ToUpper(command[0]) {
 		case "DATA":
 			s.handleData()
 		case "HELO":
