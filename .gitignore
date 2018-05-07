@@ -7,3 +7,6 @@ simpleSMTP
 # Certs and Keys
 *.crt
 *.key
+
+# domain specific files
+persited_mail/
