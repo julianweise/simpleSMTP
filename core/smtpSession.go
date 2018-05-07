@@ -29,7 +29,7 @@ func (s *SMTPSession) handle() {
 	fmt.Printf("New s.Connectionection esablished for: %s \n", s.Connection.RemoteAddr().String())
 	s.sendResponse("220 service ready")
 
-	timeoutDuration := 5 * time.Second
+	timeoutDuration := time.Duration(s.Configuration.Timeout) * time.Second
 
 	for s.active {
 		// reset timeout
