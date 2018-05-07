@@ -5,10 +5,10 @@ import (
 	"log"
 	"crypto/tls"
 	"net"
+	"strconv"
 )
 
 type TcpServer struct {
-	Port 			int
 	Certificate		tls.Certificate
 	Configuration	SMTPServerConfig
 }
@@ -26,9 +26,9 @@ func (s *TcpServer) setUpFileSystem() {
 func (s *TcpServer) Serve() {
 	s.setUpFileSystem()
 	config := &tls.Config{Certificates: []tls.Certificate{s.Certificate}}
-	ln, err := tls.Listen("tcp", ":" + string(s.Port), config)
+	ln, err := tls.Listen("tcp", ":" + strconv.Itoa(s.Configuration.Port), config)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error setting up server: " + err.Error())
 	}
 	s.listen(ln)
 }

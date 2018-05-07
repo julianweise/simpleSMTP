@@ -7,7 +7,7 @@ import (
 )
 
 type SMTPServerConfig struct {
-	Port 		int
+	Port 			int
 	MailDirectory 	string
 	MaxMailSize   	int
 	MaxRecipients 	int
