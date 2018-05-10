@@ -17,7 +17,7 @@ func main() {
 	}
 	err, serverConfig := core.NewSMTPServerConfig()
 	if err != nil {
-		log.Fatal("Failed to setup server configuration")
+		log.Fatal("Failed to setup server configuration: " + err.Error())
 	}
 	server := core.TcpServer{Certificate: cer, Configuration: serverConfig}
 	server.Serve()
