@@ -34,3 +34,6 @@ Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --
 
 ## Service Level Objectives
 - __inside-server-latency:__ 99% (averraged over 1 minuted) of vaild SMTP commands within an establish session on a idle system will be processed in less than 1ms
+
+### SMTP Commands performance measurement
+By setting `MEASURE_PERFORMANCE` inside `.env` to true, it is possible to measure the average response time per SMPT commands per session. After the session has been closed, the results will be printed to the CLI.
