@@ -11,3 +11,22 @@ Basic implementation of a subset of the [Simple Mail Transfer Protocol (RFC 5321
 
 ## Testing
 Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --no-ca-verification`
+
+## Current status of implementation
+
+| Command       | Implemented   |           remark         |
+| ------------- |:-------------:| -------------------------|
+| HELO          |       ✔       |                          |
+| NOOP          |       ✔       |                          |
+| QUIT          |       ✔       |                          |
+| MAIL          |       ✔       |                          |
+| RCPT          |       ✔       |                          |
+| DATA          |       ✔       |                          |
+| HELO          |       ✔       |                          |
+| RSET          |       ✔       |                          |
+| VRFY          |       ✗       | No usermanagement so far |
+| EHELO         |       ✗       | Not required so far      | 
+| STARTTLS      |       ✗       | Not required so far      | 
+| AUTH          |       ✗       | No usermanagement so far |
+| SIZE          |       ✗       | Not required so far      | 
+| HELP          |       ✗       | Not required so far      | 
