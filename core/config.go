@@ -12,6 +12,7 @@ type SMTPServerConfig struct {
 	MaxMailSize   	int
 	MaxRecipients 	int
 	Timeout			int
+	MaxLengthLine	int
 }
 
 func NewSMTPServerConfig() (error, SMTPServerConfig) {
@@ -23,6 +24,7 @@ func NewSMTPServerConfig() (error, SMTPServerConfig) {
 	config.Timeout, err = strconv.Atoi(os.Getenv("TIMEOUT"))
 	config.MaxMailSize, err = strconv.Atoi(os.Getenv("MAX_MAIL_SIZE"))
 	config.MaxRecipients, err = strconv.Atoi(os.Getenv("MAX_RECIPIENTS"))
+	config.MaxLengthLine, err = strconv.Atoi(os.Getenv("MAX_LENGTH_LINE"))
 
 	return err, config
 }

@@ -23,7 +23,8 @@ type SMTPSession struct {
 func (s *SMTPSession) handle() {
 	defer s.Connection.Close()
 	s.active = true
-	s.Reader = textproto.NewReader(bufio.NewReader(s.Connection))
+	maxLineLength := int64(s.Configuration.MaxLengthLine)
+	s.Reader = textproto.NewReader(bufio.NewReader(io.LimitReader(io.Reader(s.Connection), maxLineLength)))
 	s.Writer = textproto.NewWriter(bufio.NewWriter(s.Connection))
 
 	fmt.Printf("New s.Connectionection esablished for: %s \n", s.Connection.RemoteAddr().String())
