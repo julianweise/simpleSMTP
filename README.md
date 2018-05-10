@@ -30,3 +30,7 @@ Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --
 | AUTH          |       ✗       | No usermanagement so far |
 | SIZE          |       ✗       | Not required so far      | 
 | HELP          |       ✗       | Not required so far      | 
+
+
+## Service Level Objectives
+- __inside-server-latency:__ 99% (averraged over 1 minuted) of vaild SMTP commands within an establish session on a idle system will be processed in less than 1ms
