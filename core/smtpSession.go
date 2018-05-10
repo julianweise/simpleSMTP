@@ -12,18 +12,24 @@ import (
 )
 
 type SMTPSession struct {
-	Connection 		net.Conn
-	Mail 			Mail
-	Reader			*textproto.Reader
-	Writer 			*textproto.Writer
-	active			bool
-	Configuration 	SMTPServerConfig
+	Connection 			net.Conn
+	Mail 				Mail
+	Reader				*textproto.Reader
+	Writer 				*textproto.Writer
+	active				bool
+	Configuration 		SMTPServerConfig
+	MeasuringService 	SessionMeasuringService
 }
 
 func (s *SMTPSession) handle() {
 	defer s.Connection.Close()
+	if s.Configuration.ShouldMeasurePerformance {
+		s.MeasuringService = NewSessionMeasuringService()
+	}
+	defer s.MeasuringService.PrintResults()
 	s.active = true
 	maxLineLength := int64(s.Configuration.MaxLengthLine)
+
 	s.Reader = textproto.NewReader(bufio.NewReader(io.LimitReader(io.Reader(s.Connection), maxLineLength)))
 	s.Writer = textproto.NewWriter(bufio.NewWriter(s.Connection))
 
@@ -37,6 +43,7 @@ func (s *SMTPSession) handle() {
 		s.Connection.SetReadDeadline(time.Now().Add(timeoutDuration))
 		// read client input
 		msg, err := s.Reader.ReadLine()
+
 		if err != nil {
 			if err == io.EOF {
 				log.Printf("Lost connection to %s\n", s.Connection.RemoteAddr().String())
@@ -48,10 +55,14 @@ func (s *SMTPSession) handle() {
 			return
 		}
 		command := strings.Fields(msg)
+		keyword := strings.ToUpper(command[0])
 		if len(command) < 1 {
 			continue
 		}
-		switch strings.ToUpper(command[0]) {
+		if s.Configuration.ShouldMeasurePerformance {
+			s.MeasuringService.StartMeasuring(keyword)
+		}
+		switch keyword {
 		case "DATA":
 			s.handleData()
 		case "HELO":
@@ -87,7 +98,7 @@ func (s *SMTPSession) handleNoop() {
 
 func (s *SMTPSession) handleQuit() {
 	s.sendResponse("221 closing channel")
-	fmt.Printf("Closing s.Connectionection to %s as requested by client", s.Connection.RemoteAddr().String())
+	fmt.Printf("Closing s.Connectionection to %s as requested by client \n", s.Connection.RemoteAddr().String())
 	s.active = false
 }
 
@@ -167,6 +178,9 @@ func (s *SMTPSession) handleData() {
 
 func (s *SMTPSession) sendResponse(response string) {
 	err := s.Writer.PrintfLine(response)
+	if s.Configuration.ShouldMeasurePerformance {
+		s.MeasuringService.FinalizeMeasuring()
+	}
 	if err != nil {
 		log.Println(err)
 	}
