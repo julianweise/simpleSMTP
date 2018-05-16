@@ -25,8 +25,8 @@ func (s *SMTPSession) handle() {
 	defer s.Connection.Close()
 	if s.Configuration.ShouldMeasurePerformance {
 		s.MeasuringService = NewSessionMeasuringService()
+		defer s.MeasuringService.PrintResults()
 	}
-	defer s.MeasuringService.PrintResults()
 	s.active = true
 	maxLineLength := int64(s.Configuration.MaxLengthLine)
 
