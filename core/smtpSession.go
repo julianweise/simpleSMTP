@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"io"
 	"time"
+	"regexp"
 )
 
 type SMTPSession struct {
@@ -19,7 +20,12 @@ type SMTPSession struct {
 	active				bool
 	Configuration 		SMTPServerConfig
 	MeasuringService 	SessionMeasuringService
+	client				string
 }
+
+const mailFromRegex = "^MAIL\\s+FROM\\s*:\\s*<(?P<from>(?P<local>(?:[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+)*|\\\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f ]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f ])*\\\"))(?:@(?P<host>(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))))?)>$"
+const mailRcptRegex = "^RCPT\\s+TO\\s*:\\s*<(?P<receiver>(?:(?:(?:[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+)*|\\\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f ]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f ])*\\\"))(?:@(?:(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))))?\\s*,?\\s*)+)>$"
+const mailRcptIndividualRegex = "^(?P<receiver>(?:(?:(?:[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+)*|\\\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f ]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f ])*\\\"))(?:@(?:(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\]))|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])))?))(?:\\s*,?\\s*)(?P<rest>.*?)$"
 
 func (s *SMTPSession) handle() {
 	defer s.Connection.Close()
@@ -54,11 +60,11 @@ func (s *SMTPSession) handle() {
 			}
 			return
 		}
-		command := strings.Fields(msg)
-		keyword := strings.ToUpper(command[0])
-		if len(command) < 1 {
+		if len(msg) < 4 {
+			s.sendResponse("500 invalid command")
 			continue
 		}
+		keyword := strings.ToUpper(msg[:4])
 		if s.Configuration.ShouldMeasurePerformance {
 			s.MeasuringService.StartMeasuring(keyword)
 		}
@@ -66,11 +72,11 @@ func (s *SMTPSession) handle() {
 		case "DATA":
 			s.handleData()
 		case "HELO":
-			s.handleHelo()
+			s.handleHelo(msg)
 		case "MAIL":
-			s.handleMail(command[1:])
+			s.handleMail(msg)
 		case "RCPT":
-			s.handleRCPT(command[1:])
+			s.handleRCPT(msg)
 		case "NOOP":
 			s.handleNoop()
 		case "QUIT":
@@ -80,7 +86,7 @@ func (s *SMTPSession) handle() {
 		case "VRFY":
 			s.handleVerify()
 		default:
-			fmt.Printf("Command not recognized: %s \n", command)
+			fmt.Printf("Command not recognized: %s \n", msg)
 			s.sendResponse("500 unrecognized command")
 		}
 	}
@@ -88,8 +94,14 @@ func (s *SMTPSession) handle() {
 
 // SMTP Keywords
 
-func (s *SMTPSession) handleHelo() {
-	s.sendResponse("250 I am glad to meet you")
+func (s *SMTPSession) handleHelo(line string) {
+	arguments := strings.Fields(line)
+	if len(arguments) < 2 {
+		s.sendResponse("503 please provide your identifier")
+		return
+	}
+	s.client = arguments[1]
+	s.sendResponse("250 " + s.client + " - I am glad to meet you")
 }
 
 func (s *SMTPSession) handleNoop() {
@@ -113,36 +125,32 @@ func (s *SMTPSession) handleVerify() {
 	s.sendResponse("500 unrecognized command")
 }
 
-func (s *SMTPSession) handleMail(arguments []string) {
-	if len(arguments) < 1 || len(arguments[0]) <= len("FROM:") {
-		s.sendResponse("501 arguments missing")
+func (s *SMTPSession) handleMail(line string) {
+	if len(s.client) < 1 {
+		s.sendResponse("503 session not correct established. Issue HELO command first")
 		return
 	}
-	if arguments[0][:4] != "FROM" {
-		fmt.Println(arguments[0][:4])
+	var ok bool
+	ok, s.Mail.Sender = matchesValidMailFromAddress(line)
+	if !ok {
 		s.sendResponse("501 invalid arguments")
 		return
 	}
-
-	s.Mail.Sender = arguments[0][5:]
 	s.sendResponse("250 Sender OK")
 }
 
-func (s *SMTPSession) handleRCPT(arguments []string) {
+func (s *SMTPSession) handleRCPT(line string) {
 	if len(s.Mail.Sender) < 1 {
 		s.sendResponse("503 sender missing. Issue MAIL command first")
 		return
 	}
-	if len(arguments) < 1 || len(arguments[0]) <= len("TO:") {
-		s.sendResponse("501 arguments missing")
-		return
-	}
-	if arguments[0][:2] != "TO" {
+	ok, receiver := matchesValidMailRcptAddresses(line)
+	if !ok {
 		s.sendResponse("501 invalid arguments")
 		return
 	}
 
-	s.Mail.Recipient = append(s.Mail.Recipient, arguments[0][3:])
+	s.Mail.Recipient = append(s.Mail.Recipient, receiver...)
 	s.sendResponse("250 Sender OK")
 }
 
@@ -184,4 +192,49 @@ func (s *SMTPSession) sendResponse(response string) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func matchesValidMailFromAddress(line string) (success bool, sender string) {
+	r, err := regexp.Compile(mailFromRegex)
+	if err != nil {
+		log.Print("Error in Regex for MAIL FROM validation")
+		return
+	}
+	match := r.FindStringSubmatch(line)
+	if len(match) > 1 {
+		return true, match[1]
+	}
+	return
+}
+
+func matchesValidMailRcptAddresses(line string) (success bool, receiverList []string) {
+	r, err := regexp.Compile(mailRcptRegex)
+	if err != nil {
+		log.Print("Error in Regex for RCPT standard validation")
+		return
+	}
+
+	match := r.FindStringSubmatch(line)
+	if len(match) < 1 {
+		return
+	}
+
+	r, err = regexp.Compile(mailRcptIndividualRegex)
+	if err != nil {
+		log.Print("Error in Regex for RCPT individual address validation")
+		return
+	}
+
+	for {
+		receiver := r.FindStringSubmatch(match[1])
+		if len(receiver) <= 1 {
+			break
+		}
+		if receiver[1] != "" {
+			receiverList = append(receiverList, receiver[1])
+		}
+		match[1] = receiver[len(receiver) -1]
+	}
+	success = true
+	return
 }
