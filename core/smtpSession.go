@@ -12,13 +12,13 @@ import (
 )
 
 type SMTPSession struct {
-	Connection 			net.Conn
-	Mail 				Mail
-	Reader				*textproto.Reader
-	Writer 				*textproto.Writer
-	active				bool
-	Configuration 		SMTPServerConfig
-	MeasuringService 	SessionMeasuringService
+	Connection       net.Conn
+	Mail             SMTPMail
+	Reader           *textproto.Reader
+	Writer           *textproto.Writer
+	active           bool
+	Configuration    SMTPServerConfig
+	MeasuringService SessionMeasuringService
 }
 
 func (s *SMTPSession) handle() {
@@ -103,7 +103,7 @@ func (s *SMTPSession) handleQuit() {
 }
 
 func (s *SMTPSession) handleReset() {
-	s.Mail = Mail{}
+	s.Mail = SMTPMail{}
 	s.sendResponse("250 OK")
 }
 
@@ -142,7 +142,7 @@ func (s *SMTPSession) handleRCPT(arguments []string) {
 		return
 	}
 
-	s.Mail.Recipient = append(s.Mail.Recipient, arguments[0][3:])
+	s.Mail.Recipients = append(s.Mail.Recipients, arguments[0][3:])
 	s.sendResponse("250 Sender OK")
 }
 
@@ -151,7 +151,7 @@ func (s *SMTPSession) handleData() {
 		s.sendResponse("503 sender missing. Issue MAIL command first")
 		return
 	}
-	if len(s.Mail.Recipient) < 1 {
+	if len(s.Mail.Recipients) < 1 {
 		s.sendResponse("503 at least one recipient is required")
 		return
 	}
