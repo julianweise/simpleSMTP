@@ -37,3 +37,7 @@ Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --
 
 ### SMTP Commands performance measurement
 By setting `MEASURE_PERFORMANCE` inside `.env` to true, it is possible to measure the average response time per SMPT commands per session. After the session has been closed, the results will be printed to the CLI.
+
+## Building Docker Image
+Building a docker image with a running instance of the SMTP server is simply done by running `docker build .` within the `docker/` directory.
+
