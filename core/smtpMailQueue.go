@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 type SMTPMailQueue struct {
@@ -16,6 +17,7 @@ type SMTPMailQueue struct {
 	crc64Table    *crc64.Table
 	IsWriting     bool
 	Configuration *SMTPServerConfig
+	mutex		  *sync.Mutex
 }
 
 func NewMailQueue(serverConfiguration *SMTPServerConfig) (queue SMTPMailQueue, err error) {
@@ -24,6 +26,7 @@ func NewMailQueue(serverConfiguration *SMTPServerConfig) (queue SMTPMailQueue, e
 		IsWriting:     false,
 		crc64Table:    crc64.MakeTable(crc64.ECMA),
 		Configuration: serverConfiguration,
+		mutex:		   &sync.Mutex{},
 	}
 
 	return
@@ -72,16 +75,19 @@ func (q *SMTPMailQueue) run() {
 }
 
 func (q *SMTPMailQueue) push(mail *SMTPMail) {
+	q.mutex.Lock()
 	q.mails = append(q.mails, mail)
+	q.mutex.Unlock()
 }
 
 func (q *SMTPMailQueue) pop() (mail *SMTPMail) {
 	if len(q.mails) <= 0 {
 		return
 	}
-
+	q.mutex.Lock()
 	mail = q.mails[0]
 	q.mails = q.mails[1:]
+	q.mutex.Unlock()
 	return
 }
 
