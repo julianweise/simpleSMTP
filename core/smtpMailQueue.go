@@ -17,16 +17,16 @@ type SMTPMailQueue struct {
 	crc64Table    *crc64.Table
 	IsWriting     bool
 	Configuration *SMTPServerConfig
-	mutex		  *sync.Mutex
+	mutex		  sync.Mutex
 }
 
-func NewMailQueue(serverConfiguration *SMTPServerConfig) (queue SMTPMailQueue, err error) {
+func NewMailQueue(serverConfiguration *SMTPServerConfig)  (err error, queue SMTPMailQueue) {
 	queue = SMTPMailQueue{
 		writeInterval: serverConfiguration.MailWriteInterval,
 		IsWriting:     false,
 		crc64Table:    crc64.MakeTable(crc64.ECMA),
 		Configuration: serverConfiguration,
-		mutex:		   &sync.Mutex{},
+		mutex:		   sync.Mutex{},
 	}
 
 	return
@@ -104,7 +104,7 @@ func (q *SMTPMailQueue) getFileLocation(mail *SMTPMail) (location string, err er
 	location += senderDirectory + "/"
 
 	if _, err := os.Stat(location); os.IsNotExist(err) {
-		err = os.MkdirAll(location, 0644)
+		err = os.MkdirAll(location, 0755)
 	}
 
 	if err != nil {
@@ -119,7 +119,8 @@ func (q *SMTPMailQueue) getFileName(mail *SMTPMail) (name string) {
 	fileName := mail.Sender + strconv.FormatInt(time.Now().Unix(), 16)
 	fileHash := crc64.Checksum([]byte(fileName), q.crc64Table)
 
-	name = strconv.FormatUint(fileHash, 16)
+	ending := ".mail"
+	name = strconv.FormatUint(fileHash, 16) + ending
 	return
 }
 
