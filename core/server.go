@@ -1,7 +1,6 @@
 package core
 
 import (
-	"os"
 	"log"
 	"crypto/tls"
 	"net"
@@ -12,20 +11,10 @@ import (
 type TcpServer struct {
 	Certificate		tls.Certificate
 	Configuration	SMTPServerConfig
-}
-
-func (s *TcpServer) setUpFileSystem() {
-	// prepare local environment
-	if _, err := os.Stat(s.Configuration.MailDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(s.Configuration.MailDirectory, os.ModePerm)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	MailQueue 		*SMTPMailQueue
 }
 
 func (s *TcpServer) Serve() {
-	s.setUpFileSystem()
 	config := &tls.Config{Certificates: []tls.Certificate{s.Certificate}}
 	ln, err := tls.Listen("tcp", ":" + strconv.Itoa(s.Configuration.Port), config)
 	if err != nil {
@@ -36,6 +25,8 @@ func (s *TcpServer) Serve() {
 
 func (s *TcpServer) listen(ln net.Listener) {
 	defer ln.Close()
+	s.MailQueue.startWriting()
+	defer s.MailQueue.stopWriting()
 	fmt.Printf("Server is up and running on port %d.\n", s.Configuration.Port)
 	for {
 		conn, err := ln.Accept()
@@ -43,7 +34,11 @@ func (s *TcpServer) listen(ln net.Listener) {
 			log.Println(err)
 			continue
 		}
-		session := SMTPSession{Connection: conn, Configuration: s.Configuration}
+		session := SMTPSession{
+			Connection: conn,
+			Configuration: s.Configuration,
+			mailQueue: s.MailQueue,
+		}
 		go session.handle()
 	}
 }

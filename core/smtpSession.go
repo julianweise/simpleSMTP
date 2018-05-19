@@ -15,12 +15,13 @@ import (
 type SMTPSession struct {
 	Connection 			net.Conn
 	Mail 				SMTPMail
+	Client				string
 	Reader				*textproto.Reader
 	Writer 				*textproto.Writer
 	active				bool
+	mailQueue			*SMTPMailQueue
 	Configuration 		SMTPServerConfig
 	MeasuringService 	SessionMeasuringService
-	client				string
 }
 
 const mailFromRegex = "^MAIL\\s+FROM\\s*:\\s*<(?P<from>(?P<local>(?:[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+\\/=?^_`{|}~-]+)*|\\\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f ]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f ])*\\\"))(?:@(?P<host>(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))))?)>$"
@@ -100,8 +101,8 @@ func (s *SMTPSession) handleHelo(line string) {
 		s.sendResponse("503 please provide your identifier")
 		return
 	}
-	s.client = arguments[1]
-	s.sendResponse("250 " + s.client + " - I am glad to meet you")
+	s.Client = arguments[1]
+	s.sendResponse("250 " + s.Client + " - I am glad to meet you")
 }
 
 func (s *SMTPSession) handleNoop() {
@@ -126,7 +127,7 @@ func (s *SMTPSession) handleVerify() {
 }
 
 func (s *SMTPSession) handleMail(line string) {
-	if len(s.client) < 1 {
+	if len(s.Client) < 1 {
 		s.sendResponse("503 session not correct established. Issue HELO command first")
 		return
 	}
@@ -179,7 +180,7 @@ func (s *SMTPSession) handleData() {
 	s.Mail.Data = string(mailData[0:n])
 
 	s.sendResponse("250 OK")
-	s.Mail.writeToFile(s.Configuration.MailDirectory)
+	(*s.mailQueue).push(&s.Mail)
 }
 
 // helper functions
