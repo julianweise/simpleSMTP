@@ -19,6 +19,14 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to setup server configuration: " + err.Error())
 	}
-	server := core.TcpServer{Certificate: cer, Configuration: serverConfig}
+	err, mailQueue := core.NewMailQueue(&serverConfig)
+	if err != nil {
+		log.Fatal("Failed to setup a mail queue: " + err.Error())
+	}
+	server := core.TcpServer{
+		Certificate: cer,
+		Configuration: serverConfig,
+		MailQueue: &mailQueue,
+	}
 	server.Serve()
 }
