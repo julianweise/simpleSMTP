@@ -10,3 +10,6 @@ simpleSMTP
 
 # domain specific files
 persited_mail/
+
+# build data
+build/
