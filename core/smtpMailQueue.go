@@ -47,21 +47,7 @@ func (q *SMTPMailQueue) stopWriting() {
 
 func (q *SMTPMailQueue) run() {
 	for q.IsWriting {
-		mailsLen := len(q.mails)
-
-		for i := 0; i < mailsLen; i++ {
-			mail := q.pop()
-
-			if mail == nil {
-				continue
-			}
-
-			err := q.save(mail)
-			if err != nil {
-				// retry later: push mail back into queue
-				q.push(mail)
-			}
-		}
+		q.saveAll()
 
 		startWaiting := time.Now()
 		for q.IsWriting && time.Now().Sub(startWaiting) < q.writeInterval {
@@ -71,6 +57,12 @@ func (q *SMTPMailQueue) run() {
 			 */
 			time.Sleep(100 * time.Millisecond)
 		}
+	}
+
+	q.saveAll()
+
+	if len(q.mails) > 0 {
+		log.Println("[INFO] " + strconv.Itoa(len(q.mails)) + " e-mails were not saved upon stopping the mail queue!")
 	}
 }
 
@@ -162,4 +154,22 @@ func (q *SMTPMailQueue) save(mail *SMTPMail) (err error) {
 	}
 
 	return
+}
+
+func (q *SMTPMailQueue) saveAll() {
+	mailsLen := len(q.mails)
+
+	for i := 0; i < mailsLen; i++ {
+		mail := q.pop()
+
+		if mail == nil {
+			continue
+		}
+
+		err := q.save(mail)
+		if err != nil {
+			// retry later: push mail back into queue
+			q.push(mail)
+		}
+	}
 }
