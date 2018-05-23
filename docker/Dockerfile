@@ -30,9 +30,11 @@ RUN wget -O /tmp/simpleSMTP-master.zip https://codeload.github.com/julianweise/s
 RUN unzip /tmp/simpleSMTP-master.zip -d $GOPATH/src
 RUN mv $GOPATH/src/simpleSMTP-master $GOPATH/src/simpleSMTP
 
+RUN mkdir -p $GOPATH/src/simpleSMTP/build
+
 ##### GENERATE SERVER-CRT/KEY #####
-RUN openssl ecparam -genkey -name secp384r1 -out $GOPATH/src/simpleSMTP/server.key
-RUN openssl req -new -x509 -sha256 -key $GOPATH/src/simpleSMTP/server.key -out $GOPATH/src/simpleSMTP/server.crt -days 3650 \
+RUN openssl ecparam -genkey -name secp384r1 -out $GOPATH/src/simpleSMTP/build/server.key
+RUN openssl req -new -x509 -sha256 -key $GOPATH/src/simpleSMTP/build/server.key -out $GOPATH/src/simpleSMTP/build/server.crt -days 3650 \
     -subj "/C=DE/ST=Brandenburg/L=Potsdam/O=HPI/OU=SRE 2018/CN=julian.weise@student.hpi.de"
     
 ##### BUILD/RUN SIMPLE_SMTP #####
