@@ -45,7 +45,7 @@ EXPOSE 4431
 
 ##### ADD SMTP DEAMON #####
 RUN mkdir -p /etc/service/simpleSMTP
-ADD ./run_smtp.sh /etc/service/simpleSMTP/run
+RUN echo "#!/bin/sh\ncd $GOPATH/src/simpleSMTP && exec ./simpleSMTP" > /etc/service/simpleSMTP/run
 RUN chmod +x /etc/service/simpleSMTP/run
 
 # Clean up APT when done.
