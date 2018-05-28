@@ -9,6 +9,18 @@ Basic implementation of a subset of the [Simple Mail Transfer Protocol (RFC 5321
 4. Build server: `go build`
 5. Run server: `./simpleSMTP`
 
+## Configuration
+* Port: Port the server operates on
+* Timeout: Amount of seconds a Session waits for a new command
+* Certificate: Server's SSL certificate
+* Key: Key belonging to the certificate
+* Mail directory: Within this directory mails get saved. Format `<sender-hash>/<mail-hash>`
+* Mail write interval: Received mails get queued and will be writen to the file systems periodically
+* Maximum mail size: Maximum amount of bytes of a mail
+* Maximum number of recipents: Max number of recipents per mail
+* Maximum length of line: Maximum smtp protocol measage lenght
+* Performance meassuring: Enables meassuring of server performance (in-server-latency)
+
 ## Testing
 Test the implementation by making use of gnutls: `gnutls-cli localhost -p 443 --no-ca-verification`
 
