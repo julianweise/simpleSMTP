@@ -17,6 +17,7 @@ type SMTPServerConfig struct {
 	Timeout                  int
 	MaxLengthLine            int
 	ShouldMeasurePerformance bool
+	MailStorageService		 string
 }
 
 func NewSMTPServerConfig() (error, SMTPServerConfig) {
@@ -31,6 +32,7 @@ func NewSMTPServerConfig() (error, SMTPServerConfig) {
 	config.MaxLengthLine, err = strconv.Atoi(os.Getenv("MAX_LENGTH_LINE"))
 	config.ShouldMeasurePerformance, err = strconv.ParseBool(os.Getenv("MEASURE_PERFORMANCE"))
 	config.MailWriteInterval, err = time.ParseDuration(os.Getenv("MAIL_WRITE_INTERVAL"))
+	config.MailStorageService = os.Getenv("MAIL_STORAGE_SERVICE")
 
 	if err != nil {
 		log.Printf("[ERR] Error parsing time duration %s: ", os.Getenv("MAIL_WRITE_INTERVAL"))

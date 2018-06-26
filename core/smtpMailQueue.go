@@ -9,6 +9,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"net/http"
+	"encoding/json"
+	"bytes"
+	"errors"
 )
 
 type SMTPMailQueue struct {
@@ -18,6 +22,15 @@ type SMTPMailQueue struct {
 	IsWriting     bool
 	Configuration *SMTPServerConfig
 	mutex		  sync.Mutex
+}
+
+type SMTPJsonMail struct {
+	Received		string		`json:"received"`
+	ReceivedFrom	string		`json:"received_from"`
+	ReceivedBy		string		`json:"received_by"`
+	MailFrom		string		`json:"mail_from"`
+	RcptTo			[]string	`json:"rcpt_to"`
+	Data			string		`json:"data"`
 }
 
 func NewMailQueue(serverConfiguration *SMTPServerConfig)  (err error, queue SMTPMailQueue) {
@@ -116,6 +129,46 @@ func (q *SMTPMailQueue) getFileName(mail *SMTPMail) (name string) {
 	return
 }
 
+func (q *SMTPMailQueue) saveRemote(mail *SMTPMail) (err error) {
+	postUrl := q.Configuration.MailStorageService
+
+	jsonMail := SMTPJsonMail{
+		Received: time.Now().UTC().Format(time.RFC3339),
+		ReceivedFrom: "smtp-client",
+		ReceivedBy: "localhost",
+		MailFrom: mail.Sender,
+		RcptTo: mail.Recipients,
+		Data: mail.Data,
+	}
+
+	buffer := new(bytes.Buffer)
+	err = json.NewEncoder(buffer).Encode(jsonMail)
+
+	if err != nil {
+		return err
+	}
+
+	request, err := http.NewRequest("POST", postUrl, buffer)
+
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 200 {
+		err = errors.New("storage service did not store the mail: " + strconv.Itoa(response.StatusCode) + " " + response.Status)
+	}
+
+	return nil
+}
+
 func (q *SMTPMailQueue) save(mail *SMTPMail) (err error) {
 
 	/*
@@ -130,6 +183,15 @@ func (q *SMTPMailQueue) save(mail *SMTPMail) (err error) {
 	<data>
 	 */
 
+
+ 	// try to save mail remotely
+ 	err = q.saveRemote(mail)
+
+ 	if err == nil {
+ 		return nil
+	}
+
+	// remote storage did not work... so store it locally
 	fileLocation, err := q.getFileLocation(mail)
 
 	if err != nil {
